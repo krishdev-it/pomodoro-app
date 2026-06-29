@@ -1,10 +1,17 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { api } from '../api/client'
+import { formatMMSS } from '../utils/time'
 
 const MODE_COLORS = {
   focus: ['#e05c4b', 'rgba(224,92,75,0.12)'],
   short_break: ['#4bcde0', 'rgba(75,205,224,0.12)'],
   long_break: ['#7b68ee', 'rgba(123,104,238,0.12)'],
+}
+
+const MODE_TITLES = {
+  focus: 'Time to focus!',
+  short_break: 'Short break!',
+  long_break: 'Long break!',
 }
 
 function setAccent(mode) {
@@ -48,6 +55,17 @@ export function useTimer({ settings, playEndSound }) {
     setAccent(mode)
     modeRef.current = mode
   }, [mode])
+
+  // Sync document title with timer state
+  useEffect(() => {
+    if (isRunning || isPausedRef.current) {
+      document.title = `${formatMMSS(secondsLeft ?? totalSecs)} - ${MODE_TITLES[mode]}`
+    } else {
+      document.title = 'Pomodoro'
+    }
+  }, [secondsLeft, mode, isRunning])
+
+  useEffect(() => () => { document.title = 'Pomodoro' }, [])
 
   const nextMode = useCallback(() => {
     if (modeRef.current !== 'focus') {
