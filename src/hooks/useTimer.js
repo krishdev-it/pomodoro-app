@@ -26,6 +26,7 @@ export function useTimer({ settings, playEndSound }) {
   const sessionCountRef = useRef(0)
   const isRunningRef = useRef(false)
   const sessionTotalRef = useRef(null)   // pinned total for the active session
+  const isPausedRef = useRef(false)
 
   const totalSecs = settings
     ? (mode === 'focus'
@@ -35,9 +36,9 @@ export function useTimer({ settings, playEndSound }) {
         : settings.long_break_duration)
     : 1500
 
-  // Sync secondsLeft when mode or settings change while not running
+  // Sync secondsLeft when mode or settings change while idle (not paused)
   useEffect(() => {
-    if (!isRunning) {
+    if (!isRunning && !isPausedRef.current) {
       setSecondsLeft(totalSecs)
     }
   }, [mode, totalSecs, isRunning])
@@ -60,6 +61,7 @@ export function useTimer({ settings, playEndSound }) {
   const onSessionEnd = useCallback(async () => {
     clearInterval(intervalRef.current)
     isRunningRef.current = false
+    isPausedRef.current = false
     sessionTotalRef.current = null
     setIsRunning(false)
 
@@ -141,11 +143,22 @@ export function useTimer({ settings, playEndSound }) {
   const pause = useCallback(() => {
     clearInterval(intervalRef.current)
     isRunningRef.current = false
+    isPausedRef.current = true
     setIsRunning(false)
     setInterruptions(prev => prev + 1)
   }, [])
 
   const resume = useCallback(() => {
+    if (!startedAt.current) {
+      startedAt.current = new Date().toISOString()
+    }
+    if (!sessionTotalRef.current) {
+      sessionTotalRef.current = totalSecs
+    }
+    if (Notification.permission === 'default' && settings?.notification_enabled) {
+      Notification.requestPermission().catch(() => {})
+    }
+    isPausedRef.current = false
     isRunningRef.current = true
     setIsRunning(true)
     intervalRef.current = setInterval(() => {
@@ -157,11 +170,12 @@ export function useTimer({ settings, playEndSound }) {
         return prev - 1
       })
     }, 1000)
-  }, [onSessionEnd])
+  }, [onSessionEnd, settings, totalSecs])
 
   const skip = useCallback(async () => {
     clearInterval(intervalRef.current)
     isRunningRef.current = false
+    isPausedRef.current = false
     sessionTotalRef.current = null
     setIsRunning(false)
 
@@ -192,6 +206,7 @@ export function useTimer({ settings, playEndSound }) {
   const reset = useCallback(() => {
     clearInterval(intervalRef.current)
     isRunningRef.current = false
+    isPausedRef.current = false
     sessionTotalRef.current = null
     setIsRunning(false)
     setSecondsLeft(totalSecs)
